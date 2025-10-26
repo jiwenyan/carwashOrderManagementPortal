@@ -4,4 +4,5 @@ export interface Order {
   name: string;
   phoneNumber: string;
   timestamp: Date;
+  status: 'pending' | 'completed' | 'cancelled';
 }

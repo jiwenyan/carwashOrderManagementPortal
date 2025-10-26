@@ -3,9 +3,11 @@ import { Order } from './types';
 
 interface OrderListProps {
   orders: Order[];
+  onCancelOrder?: (orderId: number) => void;
+  onCompleteOrder?: (orderId: number) => void;
 }
 
-const OrderList: React.FC<OrderListProps> = ({ orders }) => {
+const OrderList: React.FC<OrderListProps> = ({ orders, onCancelOrder, onCompleteOrder }) => {
   return (
     <div className="order-list">
       <header className="order-list-header">
@@ -48,11 +50,40 @@ const OrderList: React.FC<OrderListProps> = ({ orders }) => {
                 </div>
 
                 <div className="order-status">
-                  <span className="status-pending">⏳ Waiting</span>
+                  <span className={`status-${order.status}`}>
+                    {order.status === 'pending' && '⏳ Waiting'}
+                    {order.status === 'completed' && '✅ Completed'}
+                    {order.status === 'cancelled' && '❌ Cancelled'}
+                  </span>
                   <span className="wait-time">
-                    {index === 0 ? 'Currently being processed' : `${index} cars ahead`}
+                    {order.status === 'pending' &&
+                      (index === 0 ? 'Currently being processed' : `${index} cars ahead`)
+                    }
+                    {order.status === 'completed' && 'Order completed'}
+                    {order.status === 'cancelled' && 'Order cancelled'}
                   </span>
                 </div>
+
+                {order.status === 'pending' && (onCancelOrder || onCompleteOrder) && (
+                  <div className="order-actions">
+                    {onCompleteOrder && (
+                      <button
+                        className="complete-btn"
+                        onClick={() => onCompleteOrder(order.id)}
+                      >
+                        ✅ Mark as Completed
+                      </button>
+                    )}
+                    {onCancelOrder && (
+                      <button
+                        className="cancel-btn"
+                        onClick={() => onCancelOrder(order.id)}
+                      >
+                        ❌ Cancel Order
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

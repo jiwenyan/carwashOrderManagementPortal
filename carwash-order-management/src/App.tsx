@@ -58,7 +58,8 @@ function App() {
       licenseNumber: formData.licenseNumber,
       name: formData.name,
       phoneNumber: formData.phoneNumber,
-      timestamp: new Date()
+      timestamp: new Date(),
+      status: 'pending'
     };
 
     setOrders(prev => [...prev, newOrder]);
@@ -83,6 +84,22 @@ function App() {
     if (window.confirm('Are you sure you want to clear all orders? This action cannot be undone.')) {
       setOrders([]);
       localStorage.removeItem('carWashOrders');
+    }
+  };
+
+  const cancelOrder = (orderId: number) => {
+    if (window.confirm('Are you sure you want to cancel this order?')) {
+      setOrders(prev => prev.map(order =>
+        order.id === orderId ? { ...order, status: 'cancelled' } : order
+      ));
+    }
+  };
+
+  const completeOrder = (orderId: number) => {
+    if (window.confirm('Mark this order as completed?')) {
+      setOrders(prev => prev.map(order =>
+        order.id === orderId ? { ...order, status: 'completed' } : order
+      ));
     }
   };
 
@@ -192,7 +209,7 @@ function App() {
           )}
         </div>
       </header>
-      <OrderList orders={orders} />
+      <OrderList orders={orders} onCancelOrder={cancelOrder} onCompleteOrder={completeOrder} />
     </div>
   );
 
