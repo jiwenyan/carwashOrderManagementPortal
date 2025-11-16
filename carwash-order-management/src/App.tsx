@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import OrderList from './OrderList';
 import { Order } from './types';
+import { orderApi } from './api/orderApi';
 
 function App() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -15,32 +16,26 @@ function App() {
   const [ticketNumber, setTicketNumber] = useState(0);
   const [queuePosition, setQueuePosition] = useState(0);
 
-  // Load orders from localStorage on component mount
+  // Load orders from backend API on component mount
   useEffect(() => {
-    const savedOrders = localStorage.getItem('carWashOrders');
-    if (savedOrders) {
+    const loadOrders = async () => {
       try {
-        const parsedOrders = JSON.parse(savedOrders);
-        // Convert timestamp strings back to Date objects
-        const ordersWithDates = parsedOrders.map((order: any) => ({
-          ...order,
-          timestamp: new Date(order.timestamp)
-        }));
-        for (let i = 0; i < ordersWithDates.length; i++) {
-          orders.push(ordersWithDates[i])
+        const isBackendAvailable = await orderApi.checkBackendStatus();
+        if (isBackendAvailable) {
+          const backendOrders = await orderApi.getAllOrders();
+          setOrders(backendOrders);
+        } else {
+          console.warn('Backend is not available, using empty orders list');
+          setOrders([]);
         }
-        setOrders(ordersWithDates);
-        orders.concat(ordersWithDates)
       } catch (error) {
-        console.error('Error loading orders from localStorage:', error);
+        console.error('Error loading orders from backend:', error);
+        setOrders([]);
       }
-    }
-  }, []);
+    };
 
-  // Save orders to localStorage whenever orders change
-  useEffect(() => {
-    localStorage.setItem('carWashOrders', JSON.stringify(orders));
-  }, [orders]);
+    loadOrders();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -50,56 +45,78 @@ function App() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newOrder: Order = {
-      id: orders.length + 1,
-      licenseNumber: formData.licenseNumber,
-      name: formData.name,
-      phoneNumber: formData.phoneNumber,
-      timestamp: new Date(),
-      status: 'pending'
-    };
+    try {
+      const newOrder = await orderApi.createOrder({
+        licenseNumber: formData.licenseNumber,
+        name: formData.name,
+        phoneNumber: formData.phoneNumber
+      });
 
-    setOrders(prev => [...prev, newOrder]);
-    setTicketNumber(newOrder.id);
-    setQueuePosition(orders.length);
-    setShowSuccess(true);
+      setOrders(prev => [...prev, newOrder]);
+      setTicketNumber(newOrder.id);
+      setQueuePosition(orders.length);
+      setShowSuccess(true);
 
-    // Reset form
-    setFormData({
-      licenseNumber: '',
-      name: '',
-      phoneNumber: ''
-    });
+      // Reset form
+      setFormData({
+        licenseNumber: '',
+        name: '',
+        phoneNumber: ''
+      });
 
-    // Auto-hide success message after 5 seconds
-    setTimeout(() => {
-      setShowSuccess(false);
-    }, 5000);
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+      }, 5000);
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert('Failed to create order. Please try again.');
+    }
   };
 
-  const clearAllOrders = () => {
+  const clearAllOrders = async () => {
     if (window.confirm('Are you sure you want to clear all orders? This action cannot be undone.')) {
-      setOrders([]);
-      localStorage.removeItem('carWashOrders');
+      try {
+        // Delete all orders from backend
+        for (const order of orders) {
+          await orderApi.deleteOrder(order.id);
+        }
+        setOrders([]);
+      } catch (error) {
+        console.error('Error clearing orders:', error);
+        alert('Failed to clear all orders. Please try again.');
+      }
     }
   };
 
-  const cancelOrder = (orderId: number) => {
+  const cancelOrder = async (orderId: number) => {
     if (window.confirm('Are you sure you want to cancel this order?')) {
-      setOrders(prev => prev.map(order =>
-        order.id === orderId ? { ...order, status: 'cancelled' } : order
-      ));
+      try {
+        await orderApi.updateOrderStatus(orderId, 'cancelled');
+        setOrders(prev => prev.map(order =>
+          order.id === orderId ? { ...order, status: 'cancelled' } : order
+        ));
+      } catch (error) {
+        console.error('Error cancelling order:', error);
+        alert('Failed to cancel order. Please try again.');
+      }
     }
   };
 
-  const completeOrder = (orderId: number) => {
+  const completeOrder = async (orderId: number) => {
     if (window.confirm('Mark this order as completed?')) {
-      setOrders(prev => prev.map(order =>
-        order.id === orderId ? { ...order, status: 'completed' } : order
-      ));
+      try {
+        await orderApi.updateOrderStatus(orderId, 'completed');
+        setOrders(prev => prev.map(order =>
+          order.id === orderId ? { ...order, status: 'completed' } : order
+        ));
+      } catch (error) {
+        console.error('Error completing order:', error);
+        alert('Failed to complete order. Please try again.');
+      }
     }
   };
 
